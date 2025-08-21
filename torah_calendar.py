@@ -8,42 +8,68 @@ class TorahCalendar:
     
     def get_current_parasha(self, location: str = "diaspora") -> Dict[str, Any]:
         """Get current Torah portion from Hebcal API"""
-        params = {
-            'v': 1,
-            'cfg': 'json',
-            'maj': 'on',  # Major holidays
-            'min': 'on',  # Minor holidays  
-            'mod': 'on',  # Modern holidays
-            'nx': 'on',   # Rosh Chodesh
-            'year': datetime.now().year,
-            'month': datetime.now().month,
-            'ss': 'on',   # Shabbat times
-            'mf': 'on',   # Minor fasts
-            'c': 'on',    # Candle lighting
-            'geo': 'geoname' if location == "israel" else 'none',
-            'geonameid': '281184' if location == "israel" else None,  # Jerusalem
-            'i': 'off' if location == "diaspora" else 'on'  # Israel vs Diaspora
-        }
-        
-        # Remove None values
-        params = {k: v for k, v in params.items() if v is not None}
-        
         try:
-            response = requests.get(self.hebcal_base, params=params, timeout=10)
+            # Use the converter API to get today's Hebrew date and events
+            today = datetime.now()
+            converter_url = "https://www.hebcal.com/converter/"
+            params = {
+                'cfg': 'json',
+                'gy': today.year,
+                'gm': today.month,
+                'gd': today.day,
+                'g2h': 1
+            }
+            
+            response = requests.get(converter_url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Look for Torah portion in events
+            events = data.get('events', [])
+            for event in events:
+                if event.startswith('Parashat '):
+                    parasha_name = event.replace('Parashat ', '')
+                    
+                    # Get more detailed reading info from sedrot API
+                    sedrot_url = f"https://www.hebcal.com/sedrot/{parasha_name.lower()}"
+                    
+                    return {
+                        'name': parasha_name,  # Hebrew name same as English for now
+                        'name_english': parasha_name,
+                        'date': today.date(),
+                        'torah_reading': {'torah': f'{parasha_name}'},  # Simplified
+                        'url': sedrot_url
+                    }
+            
+            # If no Torah portion found today, try to get weekly reading schedule
+            # Get broader range to find next/current Shabbat
+            params_weekly = {
+                'v': 1,
+                'cfg': 'json',
+                'year': today.year,
+                'month': today.month,
+                'ss': 'on',
+                'sed': 'on',  # Torah readings
+                'i': 'off' if location == "diaspora" else 'on'
+            }
+            
+            response = requests.get(self.hebcal_base, params=params_weekly, timeout=10)
             response.raise_for_status()
             data = response.json()
             
             # Find current/next Torah reading
-            today = datetime.now().date()
+            today_date = today.date()
             for item in data.get('items', []):
-                if item.get('category') == 'parashat':
+                if 'Parashat' in item.get('title', ''):
                     item_date = datetime.strptime(item['date'], '%Y-%m-%d').date()
-                    if item_date >= today:
+                    # Get current week's Torah portion (within 7 days)
+                    if abs((item_date - today_date).days) <= 7:
+                        parasha_name = item['title'].replace('Parashat ', '')
                         return {
-                            'name': item['hebrew'],
-                            'name_english': item['title'].replace('Parashat ', ''),
+                            'name': item.get('hebrew', parasha_name),
+                            'name_english': parasha_name,
                             'date': item_date,
-                            'torah_reading': item.get('leyning', {}),
+                            'torah_reading': item.get('leyning', {'torah': parasha_name}),
                             'url': item.get('url', '')
                         }
             

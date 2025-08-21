@@ -99,7 +99,7 @@ class RSSGenerator:
         html += "<div class='torah-text'>\n"
         
         text = torah_text.get('text', [])
-        if text and isinstance(text[0], list):
+        if text and len(text) > 0 and isinstance(text[0], list):
             # Handle nested structure (chapters/verses)
             for chapter_idx, chapter in enumerate(text, 1):
                 html += f"<h3>Chapter {chapter_idx}</h3>\n"
