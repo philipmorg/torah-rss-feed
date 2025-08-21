@@ -113,6 +113,39 @@ class RSSGenerator:
         html += "</div>\n"
         return html
     
+    def _format_torah_content_with_date(self, torah_text: Dict[str, Any], parasha_date) -> str:
+        """Format Torah text as HTML with prominent date information"""
+        date_str = parasha_date.strftime('%B %d, %Y')
+        weekday = parasha_date.strftime('%A')
+        
+        html = f"<div style='background: #f0f8ff; padding: 20px; margin-bottom: 20px; border-left: 5px solid #4a90e2;'>\n"
+        html += f"<h2 style='color: #2c5aa0; margin-top: 0;'>📅 Shabbat {weekday}, {date_str}</h2>\n"
+        html += f"<h3 style='color: #2c5aa0; margin-bottom: 0;'>Parashat {torah_text['parasha']}</h3>\n"
+        html += "</div>\n"
+        
+        html += f"<p><strong>Torah Reference:</strong> {torah_text.get('reference', '')}</p>\n"
+        html += f"<p><strong>Translation:</strong> {torah_text.get('version', 'JPS')}</p>\n"
+        
+        if torah_text.get('source'):
+            html += f"<p><strong>Source:</strong> <a href=\"{torah_text['source']}\">{torah_text['source']}</a></p>\n"
+        
+        html += "<div class='torah-text'>\n"
+        
+        text = torah_text.get('text', [])
+        if text and len(text) > 0 and isinstance(text[0], list):
+            # Handle nested structure (chapters/verses)
+            for chapter_idx, chapter in enumerate(text, 1):
+                html += f"<h3>Chapter {chapter_idx}</h3>\n"
+                for verse_idx, verse in enumerate(chapter, 1):
+                    html += f"<p><sup>{verse_idx}</sup> {verse}</p>\n"
+        else:
+            # Handle flat verse list
+            for verse_idx, verse in enumerate(text, 1):
+                html += f"<p><sup>{verse_idx}</sup> {verse}</p>\n"
+        
+        html += "</div>\n"
+        return html
+    
     def _format_daily_content(self, portion: Dict[str, Any]) -> str:
         """Format daily portion as HTML"""
         html = f"<h2>{portion['day_name']} Study - Parashat {portion['parasha']}</h2>\n"
@@ -149,7 +182,10 @@ class RSSGenerator:
                 if torah_text:
                     item = ET.SubElement(channel, "item")
                     
-                    title = f"Parashat {parasha['name_english']}"
+                    # Make the date prominent in the title
+                    date_str = parasha['date'].strftime('%B %d, %Y')
+                    weekday = parasha['date'].strftime('%A')
+                    title = f"Parashat {parasha['name_english']} - {weekday}, {date_str}"
                     ET.SubElement(item, "title").text = title
                     ET.SubElement(item, "link").text = f"{self.base_url}/portion/{parasha['name_english']}"
                     ET.SubElement(item, "guid").text = f"{parasha['name_english']}-{parasha['date']}"
@@ -158,14 +194,16 @@ class RSSGenerator:
                     pub_date = datetime.combine(parasha['date'], datetime.min.time()).replace(tzinfo=timezone.utc)
                     ET.SubElement(item, "pubDate").text = pub_date.strftime("%a, %d %b %Y 00:00:00 %z")
                     
-                    # Description with summary
-                    description = f"Torah Portion: {title}\nDate: {parasha['date'].strftime('%B %d, %Y')}\n"
-                    description += f"Reference: {torah_text.get('reference', '')}\n"
-                    description += f"Translation: {torah_text.get('version', 'JPS')}"
+                    # Description with prominent date information
+                    description = f"📅 SHABBAT DATE: {weekday}, {date_str}\n\n"
+                    description += f"Torah Portion: Parashat {parasha['name_english']}\n"
+                    description += f"Torah Reference: {torah_text.get('reference', '')}\n"
+                    description += f"Translation: {torah_text.get('version', 'JPS Contemporary Torah 2006')}\n\n"
+                    description += f"This Torah portion is read on Shabbat, {date_str}."
                     ET.SubElement(item, "description").text = description
                     
-                    # Full content
-                    content = self._format_torah_content(torah_text)
+                    # Full content with date information
+                    content = self._format_torah_content_with_date(torah_text, parasha['date'])
                     content_elem = ET.SubElement(item, "content:encoded")
                     content_elem.text = f"<![CDATA[{content}]]>"
                     

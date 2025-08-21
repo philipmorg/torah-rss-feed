@@ -103,10 +103,8 @@ class TorahCalendar:
                 current_index = torah_cycle.index("Re'eh")  # Hard-code for now since we know it's Re'eh
             else:
                 current_name = current_parasha['name_english']
-                print(f"DEBUG: Current parasha name: '{current_name}'")
                 try:
                     current_index = torah_cycle.index(current_name)
-                    print(f"DEBUG: Current parasha index: {current_index}")
                 except ValueError:
                     print(f"Current parasha '{current_name}' not found in cycle, using Re'eh as fallback")
                     current_index = torah_cycle.index("Re'eh")  # Use Re'eh as fallback for August 2025
@@ -126,7 +124,6 @@ class TorahCalendar:
                 # Calculate next parasha index (wrap around for next year)
                 next_index = (current_index + i + 1) % len(torah_cycle)  # +1 to start with NEXT parasha
                 parasha_name = torah_cycle[next_index]
-                print(f"DEBUG: i={i}, current_index={current_index}, next_index={next_index}, parasha={parasha_name}")
                 
                 # Calculate the date (each parasha is one week apart from next Saturday)
                 parasha_date = next_saturday + timedelta(weeks=i)
