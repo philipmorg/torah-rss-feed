@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import requests
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 class TorahCalendar:
     def __init__(self):
@@ -77,3 +77,51 @@ class TorahCalendar:
         except Exception as e:
             print(f"Error fetching parasha: {e}")
             return None
+    
+    def get_upcoming_parashot(self, location: str = "diaspora", count: int = 10) -> List[Dict[str, Any]]:
+        """Get multiple upcoming Torah portions"""
+        try:
+            today = datetime.now()
+            # Get next few months of data to ensure we have enough Torah portions
+            end_date = today + timedelta(days=count * 7 + 30)  # Buffer for holidays
+            
+            params = {
+                'v': 1,
+                'cfg': 'json',
+                'start': today.strftime('%Y-%m-%d'),
+                'end': end_date.strftime('%Y-%m-%d'),
+                'sed': 'on',  # Torah readings
+                'i': 'off' if location == "diaspora" else 'on'
+            }
+            
+            response = requests.get(self.hebcal_base, params=params, timeout=15)
+            response.raise_for_status()
+            data = response.json()
+            
+            parashot = []
+            today_date = today.date()
+            
+            for item in data.get('items', []):
+                if 'Parashat' in item.get('title', ''):
+                    item_date = datetime.strptime(item['date'], '%Y-%m-%d').date()
+                    
+                    # Only include future Torah portions (including today if it's Shabbat)
+                    if item_date >= today_date:
+                        parasha_name = item['title'].replace('Parashat ', '')
+                        parasha_data = {
+                            'name': item.get('hebrew', parasha_name),
+                            'name_english': parasha_name,
+                            'date': item_date,
+                            'torah_reading': item.get('leyning', {'torah': parasha_name}),
+                            'url': item.get('url', '')
+                        }
+                        parashot.append(parasha_data)
+                        
+                        if len(parashot) >= count:
+                            break
+            
+            return parashot
+            
+        except Exception as e:
+            print(f"Error fetching upcoming parashot: {e}")
+            return []

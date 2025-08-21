@@ -125,6 +125,112 @@ class RSSGenerator:
         
         return html
     
+    async def generate_upcoming_weekly_feed(self, upcoming_parashot: List[Dict[str, Any]], location: str, sefaria_client) -> str:
+        """Generate RSS feed for upcoming weekly Torah portions"""
+        
+        rss = ET.Element("rss", version="2.0")
+        rss.set("xmlns:content", "http://purl.org/rss/1.0/modules/content/")
+        
+        channel = ET.SubElement(rss, "channel")
+        
+        # Channel metadata
+        ET.SubElement(channel, "title").text = f"Upcoming Torah Portions - JPS Translation ({location.title()})"
+        ET.SubElement(channel, "description").text = "Upcoming weekly Torah portions with full JPS English text"
+        ET.SubElement(channel, "link").text = f"{self.base_url}/feeds/weekly/{location}"
+        ET.SubElement(channel, "language").text = "en-us"
+        ET.SubElement(channel, "lastBuildDate").text = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S %z")
+        
+        # Create items for each upcoming Torah portion
+        for parasha in upcoming_parashot:
+            try:
+                # Get Torah text for this portion
+                torah_text = await sefaria_client.get_torah_portion(parasha)
+                
+                if torah_text:
+                    item = ET.SubElement(channel, "item")
+                    
+                    title = f"Parashat {parasha['name_english']}"
+                    ET.SubElement(item, "title").text = title
+                    ET.SubElement(item, "link").text = f"{self.base_url}/portion/{parasha['name_english']}"
+                    ET.SubElement(item, "guid").text = f"{parasha['name_english']}-{parasha['date']}"
+                    
+                    # Use the parasha date for publication
+                    pub_date = datetime.combine(parasha['date'], datetime.min.time()).replace(tzinfo=timezone.utc)
+                    ET.SubElement(item, "pubDate").text = pub_date.strftime("%a, %d %b %Y 00:00:00 %z")
+                    
+                    # Description with summary
+                    description = f"Torah Portion: {title}\nDate: {parasha['date'].strftime('%B %d, %Y')}\n"
+                    description += f"Reference: {torah_text.get('reference', '')}\n"
+                    description += f"Translation: {torah_text.get('version', 'JPS')}"
+                    ET.SubElement(item, "description").text = description
+                    
+                    # Full content
+                    content = self._format_torah_content(torah_text)
+                    content_elem = ET.SubElement(item, "content:encoded")
+                    content_elem.text = f"<![CDATA[{content}]]>"
+                    
+            except Exception as e:
+                print(f"Error processing parasha {parasha.get('name_english', 'unknown')}: {e}")
+                continue
+        
+        return self._prettify_xml(rss)
+    
+    async def generate_upcoming_daily_feed(self, upcoming_parashot: List[Dict[str, Any]], location: str, sefaria_client) -> str:
+        """Generate RSS feed for upcoming daily Torah portions"""
+        
+        rss = ET.Element("rss", version="2.0")
+        rss.set("xmlns:content", "http://purl.org/rss/1.0/modules/content/")
+        
+        channel = ET.SubElement(rss, "channel")
+        
+        # Channel metadata
+        ET.SubElement(channel, "title").text = f"Upcoming Daily Torah Portions - JPS Translation ({location.title()})"
+        ET.SubElement(channel, "description").text = "Upcoming daily Torah study portions with full JPS English text"
+        ET.SubElement(channel, "link").text = f"{self.base_url}/feeds/daily/{location}"
+        ET.SubElement(channel, "language").text = "en-us"
+        ET.SubElement(channel, "lastBuildDate").text = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S %z")
+        
+        # Create daily items for each upcoming Torah portion
+        for parasha in upcoming_parashot:
+            try:
+                # Get daily portions for this parasha
+                daily_portions = await sefaria_client.get_daily_portions(parasha)
+                
+                if daily_portions:
+                    for portion in daily_portions:
+                        item = ET.SubElement(channel, "item")
+                        
+                        title = f"{portion['day_name']} - Parashat {portion['parasha']} (Day {portion['day']})"
+                        ET.SubElement(item, "title").text = title
+                        ET.SubElement(item, "link").text = f"{self.base_url}/daily/{portion['parasha']}/{portion['day']}"
+                        ET.SubElement(item, "guid").text = f"{portion['parasha']}-day-{portion['day']}-{parasha['date']}"
+                        
+                        # Calculate date for this day relative to the parasha date
+                        parasha_date = parasha['date']
+                        # Assume Sunday starts the Torah week (day 1 = Sunday)
+                        days_from_sunday = portion['day'] - 1
+                        portion_date = parasha_date - timedelta(days=(parasha_date.weekday() + 1) % 7) + timedelta(days=days_from_sunday)
+                        
+                        pub_date = datetime.combine(portion_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+                        ET.SubElement(item, "pubDate").text = pub_date.strftime("%a, %d %b %Y 06:00:00 %z")
+                        
+                        # Description
+                        description = f"Daily Torah study for {portion['day_name']}\n"
+                        description += f"Parashat {portion['parasha']} - {portion['verse_range']}\n"
+                        description += f"Torah portion date: {parasha['date'].strftime('%B %d, %Y')}"
+                        ET.SubElement(item, "description").text = description
+                        
+                        # Full content
+                        content = self._format_daily_content(portion)
+                        content_elem = ET.SubElement(item, "content:encoded")
+                        content_elem.text = f"<![CDATA[{content}]]>"
+                        
+            except Exception as e:
+                print(f"Error processing daily portions for {parasha.get('name_english', 'unknown')}: {e}")
+                continue
+        
+        return self._prettify_xml(rss)
+    
     def _prettify_xml(self, elem) -> str:
         """Return a pretty-printed XML string"""
         from xml.dom import minidom

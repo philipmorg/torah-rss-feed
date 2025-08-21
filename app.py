@@ -21,12 +21,13 @@ async def root():
     <html><body>
     <h1>Torah RSS Feeds</h1>
     <ul>
-        <li><a href="/feeds/weekly">/feeds/weekly</a> - Weekly Torah Portions</li>
-        <li><a href="/feeds/daily">/feeds/daily</a> - Daily Torah Portions (weekly divided by 7)</li>
+        <li><a href="/feeds/weekly">/feeds/weekly</a> - Upcoming Weekly Torah Portions (next 8 weeks)</li>
+        <li><a href="/feeds/daily">/feeds/daily</a> - Upcoming Daily Torah Portions (next 4 weeks, divided by 7)</li>
         <li><a href="/feeds/weekly/diaspora">/feeds/weekly/diaspora</a> - Diaspora schedule</li>
         <li><a href="/feeds/weekly/israel">/feeds/weekly/israel</a> - Israel schedule</li>
     </ul>
-    <p>All feeds include full JPS English text.</p>
+    <p>All feeds include full JPS English text from upcoming Torah portions.</p>
+    <p><strong>Note:</strong> Feeds are updated every 6 hours (weekly) or 2 hours (daily) and contain future Torah portions relative to when the feed is generated.</p>
     </body></html>
     """)
 
@@ -40,12 +41,11 @@ async def weekly_feed(location: str = "diaspora"):
     if cached:
         return Response(content=cached, media_type="application/rss+xml")
     
-    # Get current Torah portion
-    parasha = calendar.get_current_parasha(location)
-    torah_text = await sefaria.get_torah_portion(parasha)
+    # Get upcoming Torah portions (next 8 weeks)
+    upcoming_parashot = calendar.get_upcoming_parashot(location, count=8)
     
-    # Generate RSS
-    rss_content = rss_gen.generate_weekly_feed(parasha, torah_text, location)
+    # Generate RSS with upcoming portions
+    rss_content = await rss_gen.generate_upcoming_weekly_feed(upcoming_parashot, location, sefaria)
     
     # Cache result
     cache.set(cache_key, rss_content)
@@ -62,12 +62,11 @@ async def daily_feed(location: str = "diaspora"):
     if cached:
         return Response(content=cached, media_type="application/rss+xml")
     
-    # Get current week's Torah portion and divide by days
-    parasha = calendar.get_current_parasha(location)
-    daily_portions = await sefaria.get_daily_portions(parasha)
+    # Get upcoming Torah portions for daily division
+    upcoming_parashot = calendar.get_upcoming_parashot(location, count=4)  # Next 4 weeks
     
-    # Generate RSS
-    rss_content = rss_gen.generate_daily_feed(daily_portions, location)
+    # Generate RSS with daily portions from upcoming parashot
+    rss_content = await rss_gen.generate_upcoming_daily_feed(upcoming_parashot, location, sefaria)
     
     # Cache result
     cache.set(cache_key, rss_content)
