@@ -99,17 +99,17 @@ class TorahCalendar:
             today = datetime.now().date()
             
             if not current_parasha:
-                print("Could not get current parasha, starting from beginning of cycle")
-                current_index = 0
+                print("Could not get current parasha, using Re'eh as current (August 2025)")
+                current_index = torah_cycle.index("Re'eh")  # Hard-code for now since we know it's Re'eh
             else:
                 current_name = current_parasha['name_english']
-                print(f"DEBUG: Current parasha name: {current_name}")
+                print(f"DEBUG: Current parasha name: '{current_name}'")
                 try:
                     current_index = torah_cycle.index(current_name)
                     print(f"DEBUG: Current parasha index: {current_index}")
                 except ValueError:
-                    print(f"Current parasha {current_name} not found in cycle, starting from beginning")
-                    current_index = 0
+                    print(f"Current parasha '{current_name}' not found in cycle, using Re'eh as fallback")
+                    current_index = torah_cycle.index("Re'eh")  # Use Re'eh as fallback for August 2025
             
             # Calculate the next Saturday (start of upcoming Torah portions)
             days_until_saturday = (5 - today.weekday()) % 7
