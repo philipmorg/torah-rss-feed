@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 
 class RSSGenerator:
     def __init__(self):
-        self.base_url = "https://your-app-domain.railway.app"  # Update this
+        self.base_url = "https://torah-rss-feed-production.up.railway.app"
     
     def generate_weekly_feed(self, parasha: Dict[str, Any], torah_text: Dict[str, Any], location: str) -> str:
         """Generate RSS feed for weekly Torah portions"""
