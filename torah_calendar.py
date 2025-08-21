@@ -96,56 +96,46 @@ class TorahCalendar:
             
             # Get current parasha to find our position in the cycle
             current_parasha = self.get_current_parasha(location)
+            today = datetime.now().date()
+            
             if not current_parasha:
                 print("Could not get current parasha, starting from beginning of cycle")
                 current_index = 0
-                current_date = datetime.now().date()
             else:
                 current_name = current_parasha['name_english']
                 try:
                     current_index = torah_cycle.index(current_name)
-                    current_date = current_parasha['date']
                 except ValueError:
                     print(f"Current parasha {current_name} not found in cycle, starting from beginning")
                     current_index = 0
-                    current_date = datetime.now().date()
+            
+            # Calculate the next Saturday (start of upcoming Torah portions)
+            days_until_saturday = (5 - today.weekday()) % 7
+            if days_until_saturday == 0:
+                # Today is Saturday - check if we want current parasha or next
+                next_saturday = today + timedelta(days=7)  # Start with next week
+            else:
+                next_saturday = today + timedelta(days=days_until_saturday)
             
             parashot = []
             
-            # Generate upcoming parashot
+            # Generate upcoming parashot starting from next Saturday
             for i in range(count):
                 # Calculate next parasha index (wrap around for next year)
-                next_index = (current_index + i) % len(torah_cycle)
+                next_index = (current_index + i + 1) % len(torah_cycle)  # +1 to start with NEXT parasha
                 parasha_name = torah_cycle[next_index]
                 
-                # Calculate the date (each parasha is typically one week apart)
-                # If we're wrapping around (next year), account for the cycle restart
-                weeks_ahead = i
-                if next_index <= current_index and i > 0:
-                    # We've wrapped to next year, add remaining weeks in current year
-                    weeks_ahead = i
+                # Calculate the date (each parasha is one week apart from next Saturday)
+                parasha_date = next_saturday + timedelta(weeks=i)
                 
-                parasha_date = current_date + timedelta(weeks=weeks_ahead)
-                
-                # Adjust to Saturday (Shabbat) - 5 is Saturday in weekday()
-                days_until_saturday = (5 - parasha_date.weekday()) % 7
-                if days_until_saturday == 0 and i == 0:
-                    # If current parasha is today and it's Saturday, keep it
-                    parasha_date = parasha_date
-                else:
-                    parasha_date = parasha_date + timedelta(days=days_until_saturday)
-                
-                # Only include future dates (or today if it's Shabbat)
-                today = datetime.now().date()
-                if parasha_date >= today:
-                    parasha_data = {
-                        'name': parasha_name,
-                        'name_english': parasha_name,
-                        'date': parasha_date,
-                        'torah_reading': {'torah': parasha_name},
-                        'url': f"https://www.hebcal.com/sedrot/{parasha_name.lower()}"
-                    }
-                    parashot.append(parasha_data)
+                parasha_data = {
+                    'name': parasha_name,
+                    'name_english': parasha_name,
+                    'date': parasha_date,
+                    'torah_reading': {'torah': parasha_name},
+                    'url': f"https://www.hebcal.com/sedrot/{parasha_name.lower()}"
+                }
+                parashot.append(parasha_data)
             
             return parashot
             
