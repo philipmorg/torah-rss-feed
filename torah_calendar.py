@@ -103,8 +103,10 @@ class TorahCalendar:
                 current_index = torah_cycle.index("Re'eh")  # Hard-code for now since we know it's Re'eh
             else:
                 current_name = current_parasha['name_english']
+                # Normalize apostrophes to handle Unicode differences
+                current_name_normalized = current_name.replace(''', "'").replace(''', "'")
                 try:
-                    current_index = torah_cycle.index(current_name)
+                    current_index = torah_cycle.index(current_name_normalized)
                 except ValueError:
                     print(f"Current parasha '{current_name}' not found in cycle, using Re'eh as fallback")
                     current_index = torah_cycle.index("Re'eh")  # Use Re'eh as fallback for August 2025
@@ -112,18 +114,23 @@ class TorahCalendar:
             # Calculate the next Saturday (start of upcoming Torah portions)
             days_until_saturday = (5 - today.weekday()) % 7
             if days_until_saturday == 0:
-                # Today is Saturday - check if we want current parasha or next
-                next_saturday = today + timedelta(days=7)  # Start with next week
+                # Today is Saturday - start with current parasha
+                next_saturday = today
+                start_offset = 0  # Start with current parasha
             else:
-                next_saturday = today + timedelta(days=days_until_saturday)
+                # Check if we should include this week's Saturday or next week's
+                this_saturday = today + timedelta(days=days_until_saturday)
+                # If this Saturday hasn't passed yet, include it
+                next_saturday = this_saturday
+                start_offset = 0  # Start with current parasha (this week's)
             
             parashot = []
             
-            # Generate upcoming parashot starting from next Saturday
+            # Generate upcoming parashot starting from this or next Saturday
             for i in range(count):
-                # Calculate next parasha index (wrap around for next year)
-                next_index = (current_index + i + 1) % len(torah_cycle)  # +1 to start with NEXT parasha
-                parasha_name = torah_cycle[next_index]
+                # Calculate parasha index (wrap around for next year)
+                parasha_index = (current_index + i + start_offset) % len(torah_cycle)
+                parasha_name = torah_cycle[parasha_index]
                 
                 # Calculate the date (each parasha is one week apart from next Saturday)
                 parasha_date = next_saturday + timedelta(weeks=i)
