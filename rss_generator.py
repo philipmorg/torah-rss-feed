@@ -158,6 +158,28 @@ class RSSGenerator:
         
         return html
     
+    def _format_daily_content_with_date(self, portion: Dict[str, Any], portion_date, parasha_date) -> str:
+        """Format daily portion as HTML with prominent date information"""
+        date_str = portion_date.strftime('%B %d, %Y')
+        weekday = portion_date.strftime('%A')
+        parasha_date_str = parasha_date.strftime('%B %d, %Y')
+        
+        html = f"<div style='background: #f0f8ff; padding: 20px; margin-bottom: 20px; border-left: 5px solid #4a90e2;'>\n"
+        html += f"<h2 style='color: #2c5aa0; margin-top: 0;'>📅 Daily Torah Study - {weekday}, {date_str}</h2>\n"
+        html += f"<h3 style='color: #2c5aa0; margin-bottom: 10px;'>{portion['day_name']} - Parashat {portion['parasha']} (Day {portion['day']} of 7)</h3>\n"
+        html += f"<p style='color: #666; margin-bottom: 0;'><strong>Shabbat Torah Portion:</strong> {parasha_date_str}</p>\n"
+        html += "</div>\n"
+        
+        html += f"<p><strong>Torah Reference:</strong> {portion['verse_range']}</p>\n"
+        html += f"<p><strong>Translation:</strong> JPS Contemporary Torah</p>\n"
+        
+        html += "<div class='daily-torah-text'>\n"
+        for verse_idx, verse in enumerate(portion['text'], 1):
+            html += f"<p><sup>{verse_idx}</sup> {verse}</p>\n"
+        html += "</div>\n"
+        
+        return html
+    
     async def generate_upcoming_weekly_feed(self, upcoming_parashot: List[Dict[str, Any]], location: str, sefaria_client) -> str:
         """Generate RSS feed for upcoming weekly Torah portions"""
         
@@ -250,7 +272,10 @@ class RSSGenerator:
                         if portion_date >= two_days_ago:
                             item = ET.SubElement(channel, "item")
                             
-                            title = f"{portion['day_name']} - Parashat {portion['parasha']} (Day {portion['day']})"
+                            # Make the date prominent in the title
+                            date_str = portion_date.strftime('%B %d, %Y')
+                            weekday = portion_date.strftime('%A')
+                            title = f"{portion['day_name']}, {date_str} - Parashat {portion['parasha']} (Day {portion['day']})"
                             ET.SubElement(item, "title").text = title
                             ET.SubElement(item, "link").text = f"{self.base_url}/daily/{portion['parasha']}/{portion['day']}"
                             ET.SubElement(item, "guid").text = f"{portion['parasha']}-day-{portion['day']}-{parasha['date']}"
@@ -258,14 +283,16 @@ class RSSGenerator:
                             pub_date = datetime.combine(portion_date, datetime.min.time()).replace(tzinfo=timezone.utc)
                             ET.SubElement(item, "pubDate").text = pub_date.strftime("%a, %d %b %Y 06:00:00 %z")
                             
-                            # Description
-                            description = f"Daily Torah study for {portion['day_name']}\n"
+                            # Description with prominent date information
+                            description = f"📅 DAILY STUDY DATE: {weekday}, {date_str}\n\n"
+                            description += f"Day {portion['day']} of 7 - Daily Torah study for {portion['day_name']}\n"
                             description += f"Parashat {portion['parasha']} - {portion['verse_range']}\n"
-                            description += f"Torah portion date: {parasha['date'].strftime('%B %d, %Y')}"
+                            description += f"Shabbat Torah portion date: {parasha['date'].strftime('%B %d, %Y')}\n\n"
+                            description += f"This daily portion is for {weekday}, {date_str}."
                             ET.SubElement(item, "description").text = description
                             
-                            # Full content
-                            content = self._format_daily_content(portion)
+                            # Full content with date information
+                            content = self._format_daily_content_with_date(portion, portion_date, parasha['date'])
                             content_elem = ET.SubElement(item, "content:encoded")
                             content_elem.text = f"<![CDATA[{content}]]>"
                         
