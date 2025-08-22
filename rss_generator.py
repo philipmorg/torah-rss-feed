@@ -101,8 +101,20 @@ class RSSGenerator:
         text = torah_text.get('text', [])
         if text and len(text) > 0 and isinstance(text[0], list):
             # Handle nested structure (chapters/verses)
-            for chapter_idx, chapter in enumerate(text, 1):
-                html += f"<h3>Chapter {chapter_idx}</h3>\n"
+            # Extract starting chapter number from reference (e.g., "Deuteronomy 11 26-16 17" -> 11)
+            reference = torah_text.get('reference', '')
+            starting_chapter = 1
+            try:
+                # Parse reference like "Deuteronomy 11 26-16 17" to get starting chapter
+                parts = reference.split()
+                if len(parts) >= 2:
+                    starting_chapter = int(parts[1])
+            except (ValueError, IndexError):
+                starting_chapter = 1
+            
+            for chapter_idx, chapter in enumerate(text):
+                actual_chapter_num = starting_chapter + chapter_idx
+                html += f"<h3>Chapter {actual_chapter_num}</h3>\n"
                 for verse_idx, verse in enumerate(chapter, 1):
                     html += f"<p><sup>{verse_idx}</sup> {verse}</p>\n"
         else:
@@ -134,8 +146,20 @@ class RSSGenerator:
         text = torah_text.get('text', [])
         if text and len(text) > 0 and isinstance(text[0], list):
             # Handle nested structure (chapters/verses)
-            for chapter_idx, chapter in enumerate(text, 1):
-                html += f"<h3>Chapter {chapter_idx}</h3>\n"
+            # Extract starting chapter number from reference (e.g., "Deuteronomy 11 26-16 17" -> 11)
+            reference = torah_text.get('reference', '')
+            starting_chapter = 1
+            try:
+                # Parse reference like "Deuteronomy 11 26-16 17" to get starting chapter
+                parts = reference.split()
+                if len(parts) >= 2:
+                    starting_chapter = int(parts[1])
+            except (ValueError, IndexError):
+                starting_chapter = 1
+            
+            for chapter_idx, chapter in enumerate(text):
+                actual_chapter_num = starting_chapter + chapter_idx
+                html += f"<h3>Chapter {actual_chapter_num}</h3>\n"
                 for verse_idx, verse in enumerate(chapter, 1):
                     html += f"<p><sup>{verse_idx}</sup> {verse}</p>\n"
         else:
