@@ -100,10 +100,15 @@ class SefariaClient:
             async with session.get(url, params=params) as response:
                 if response.status == 200:
                     data = await response.json()
+                    text = data.get('text', [])
+                    
+                    # Extract the correct verse range from the response
+                    filtered_text = self._extract_verse_range(text, ref)
+                    
                     return {
                         'parasha': parasha_name,
                         'reference': ref.replace('.', ' ').replace('-', '-'),
-                        'text': data.get('text', []),
+                        'text': filtered_text,
                         'hebrew': data.get('he', []),
                         'version': data.get('versionTitle', 'JPS Contemporary Torah 2006'),
                         'source': data.get('versionSource', '')
@@ -158,6 +163,58 @@ class SefariaClient:
         ref = ref.replace(' ', '.')
         return ref
     
+    def _extract_verse_range(self, text, ref):
+        """Extract the correct verse range from Sefaria response based on reference"""
+        try:
+            # Parse reference like "Deuteronomy.11.26-16.17"
+            # Split on the book name and range
+            parts = ref.split('.')
+            if len(parts) < 3:
+                return text  # If parsing fails, return full text
+            
+            # Extract start and end references
+            range_part = '.'.join(parts[1:])  # "11.26-16.17"
+            start_ref, end_ref = range_part.split('-')
+            
+            start_chapter, start_verse = map(int, start_ref.split('.'))
+            end_chapter, end_verse = map(int, end_ref.split('.'))
+            
+            if not text or not isinstance(text[0], list):
+                return text  # If not chapter/verse structure, return as is
+            
+            filtered_chapters = []
+            
+            # Process each chapter in the range
+            for chapter_num in range(start_chapter, end_chapter + 1):
+                chapter_index = chapter_num - start_chapter
+                
+                if chapter_index >= len(text):
+                    break  # No more chapters available
+                    
+                chapter_verses = text[chapter_index]
+                
+                if chapter_num == start_chapter and chapter_num == end_chapter:
+                    # Same chapter - extract verse range within chapter
+                    filtered_verses = chapter_verses[start_verse-1:end_verse]
+                elif chapter_num == start_chapter:
+                    # First chapter - start from start_verse to end
+                    filtered_verses = chapter_verses[start_verse-1:]
+                elif chapter_num == end_chapter:
+                    # Last chapter - from beginning to end_verse
+                    filtered_verses = chapter_verses[:end_verse]
+                else:
+                    # Middle chapters - take all verses
+                    filtered_verses = chapter_verses
+                
+                if filtered_verses:
+                    filtered_chapters.append(filtered_verses)
+            
+            return filtered_chapters if filtered_chapters else text
+            
+        except Exception as e:
+            print(f"Error extracting verse range from {ref}: {e}")
+            return text  # Return original text if parsing fails
+
     async def close(self):
         if self.session:
             await self.session.close()
